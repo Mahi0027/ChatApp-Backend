@@ -2,6 +2,12 @@ const express = require("express");
 const bcryptjs = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const cors = require("cors");
+const io = require("socket.io")(8080, {
+    cors: {
+        origin: "http://localhost:3000",
+        methods: ["GET", "POST"],
+    },
+});
 // Connect DB
 require("./db/connection");
 
@@ -15,7 +21,45 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cors());
+
 const port = process.env.PORT || 8000;
+
+// socket.io
+let users = [];
+io.on("connection", (socket) => {
+    /* on add user. */
+    socket.on("addUser", (userId) => {
+        if (userId) {
+            const isUserExist = users.find((user) => user.userId === userId);
+            if (!isUserExist) {
+                const user = { userId, socketId: socket.id };
+                users.push(user);
+                io.emit("getUsers", users);
+            }
+        }
+    });
+
+    socket.on(
+        "sendMessage",
+        async ({ conversationId, senderId, message, receiverId }) => {
+            const receiver = users.find((user) => user.userId === receiverId);
+            if (receiver) {
+                io.to(receiver.socketId).emit("getMessage", {
+                    conversationId,
+                    senderId,
+                    message,
+                    receiver,
+                });
+            }
+        }
+    );
+
+    /* on disconnect user. */
+    socket.on("disconnect", () => {
+        users = users.filter((user) => user.socketId !== socket.id);
+        io.emit("getUsers", users);
+    });
+});
 
 // Routes
 app.get("/", (req, res) => {
@@ -54,20 +98,32 @@ app.post("/api/login", async (req, res, next) => {
     try {
         const { email, password } = req.body;
         if (!email || !password) {
-            res.status(400).send("Please fill all required fields.");
+            res.status(400).send({
+                type: "error",
+                heading: "Field require to fill",
+                message: "Please fill all required fields.",
+            });
         } else {
             const user = await Users.findOne({ email });
             if (!user) {
-                res.status(400).send("User email or password is incorrect.");
+                res.status(500).send({
+                    type: "error",
+                    heading: "Wrong Credentials.",
+                    message:
+                        "User email or password is incorrect. Please provide correct one.",
+                });
             } else {
                 const validateUser = await bcryptjs.compare(
                     password,
                     user.password
                 );
                 if (!validateUser) {
-                    res.status(400).send(
-                        "User email or password is incorrect."
-                    );
+                    res.status(500).send({
+                        type: "error",
+                        heading: "Wrong Credentials.",
+                        message:
+                            "User email or password is incorrect. Please provide correct one.",
+                    });
                 } else {
                     const payload = {
                         userId: user._id,
@@ -102,7 +158,11 @@ app.post("/api/login", async (req, res, next) => {
             }
         }
     } catch (error) {
-        res.status(400).send(`Something went wrong. Error: ${error}`);
+        res.status(500).send({
+            type: "error",
+            heading: "Error",
+            message: `Something went wrong. Error: ${error}`,
+        });
     }
 });
 
@@ -114,7 +174,6 @@ app.post("/api/conversation", async (req, res) => {
             members: [senderId, receiverId],
         });
         const result = await newConversation.save();
-        console.log(result);
         res.status(200).send({
             id: result._id,
             message: "Conversation created successfully.",
@@ -128,10 +187,7 @@ app.post("/api/conversation", async (req, res) => {
 app.get("/api/conversations", async (req, res) => {
     try {
         const allConversations = await Conversations.find({});
-        for (let key in allConversations) {
-            console.log(key, allConversations[key]);
-        }
-            res.status(200).json(allConversations);
+        res.status(200).json(allConversations);
     } catch (error) {
         res.status(400).send(`Something went wrong. Error: ${error}`);
     }
@@ -152,6 +208,7 @@ app.get("/api/conversations/:userId", async (req, res) => {
                 const receiverUser = await Users.findById(receiverId);
                 return {
                     user: {
+                        id: receiverUser._id,
                         email: receiverUser.email,
                         fullName: receiverUser.fullName,
                     },
@@ -226,8 +283,12 @@ app.get("/api/users", async (req, res) => {
         const usersData = await Promise.all(
             users.map(async (user) => {
                 return {
-                    user: { email: user.email, fullName: user.fullName },
-                    userId: user._id,
+                    user: {
+                        id: user._id,
+                        email: user.email,
+                        fullName: user.fullName,
+                    },
+                    // userId: user._id,
                 };
             })
         );
