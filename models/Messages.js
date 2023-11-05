@@ -9,7 +9,11 @@ const MessageSchema = mongoose.Schema({
         type: String,
     },
     message: {
-        type: String,  
+        type: String,
+    },
+    read: {
+        type: Boolean,
+        default: false,
     },
 });
 

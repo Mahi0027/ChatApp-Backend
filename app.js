@@ -252,9 +252,10 @@ app.post("/api/message", async (req, res) => {
 });
 
 // get conversations
-app.get("/api/message/:conversationId", async (req, res) => {
+app.get("/api/message/:conversationId/:senderId", async (req, res) => {
     try {
         const conversationId = req.params.conversationId;
+        const senderId = req.params.senderId;
         if (!conversationId) return res.status(200).json([]);
         const messages = await Messages.find({ conversationId });
         const messageUserData = Promise.all(
@@ -270,11 +271,61 @@ app.get("/api/message/:conversationId", async (req, res) => {
                 };
             })
         );
+        /* update read status to true. */
+        await Messages.updateMany(
+            { conversationId, senderId },
+            { $set: { read: true } }
+        );
         res.status(200).json(await messageUserData);
     } catch (error) {
         res.status(400).send(`Something went wrong. Error: ${error}`);
     }
 });
+
+/* update message read status. */
+app.get(
+    "/api/messageReadUpdate/:conversationId/:senderId",
+    async (req, res) => {
+        try {
+            const conversationId = req.params.conversationId;
+            const senderId = req.params.senderId;
+            await Messages.updateMany(
+                { conversationId, senderId },
+                { $set: { read: true } }
+            );
+            res.status(200).send({ message: "Message read successfully." });
+        } catch (error) {
+            res.status(400).send({
+                message: `Something went wrong. Error: ${error}`,
+            });
+        }
+    }
+);
+
+/* get unread messages count. */
+app.get(
+    "/api/unreadMessagesCount/:conversationId/:senderId",
+    async (req, res) => {
+        try {
+            const conversationId = req.params.conversationId;
+            const senderId = req.params.senderId;
+            
+            const allUnreadMessages = await Messages.find({
+                conversationId,
+                senderId,
+                read:false
+            });
+            res.status(200).send({
+                message: "Message read successfully.",
+                data: allUnreadMessages,
+            });
+        } catch (error) {
+            res.status(400).send({
+                message: `Something went wrong. Error: ${error.message}`,
+            });
+        }
+    }
+);
 
 // get list of all users.
 app.get("/api/users", async (req, res) => {
