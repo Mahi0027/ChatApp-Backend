@@ -71,25 +71,42 @@ app.post("/api/register", async (req, res, next) => {
     try {
         const { fullName, email, password } = req.body;
         if (!fullName || !email || !password) {
-            res.status(400).send("Please fill all required fields");
+            res.status(400).send({
+                type: "error",
+                heading: "Field require to fill",
+                message: "Please fill all required fields.",
+            });
         } else {
             const isExistUser = await Users.findOne({ email });
             if (isExistUser) {
-                res.status(400).send("User already exists.");
+                res.status(500).send({
+                    type: "error",
+                    heading: "User Error",
+                    message: "User is already exists.",
+                });
             } else {
-                const newUser = new Users({ fullName, email });
+                const newUser = new Users({
+                    firstName: fullName,
+                    email: email,
+                });
                 bcryptjs.hash(password, 10, (error, hashedPassword) => {
                     newUser.set("password", hashedPassword);
                     newUser.save();
                     next();
                 });
-                return res
-                    .status(200)
-                    .send({ message: "User registered successfully" });
+                res.status(200).send({
+                    type: "success",
+                    heading: "Success",
+                    message: "User registered successfully.",
+                });
             }
         }
     } catch (error) {
-        res.status(400).send("Something went wrong. Error: ", error);
+        res.status(500).send({
+            type: "error",
+            heading: "Error",
+            message: `Something went wrong. Error: ${error}`,
+        });
     }
 });
 
@@ -157,6 +174,63 @@ app.post("/api/login", async (req, res, next) => {
                 }
             }
         }
+    } catch (error) {
+        res.status(500).send({
+            type: "error",
+            heading: "Error",
+            message: `Something went wrong. Error: ${error}`,
+        });
+    }
+});
+
+// user profile update
+app.post("/api/userUpdate", async (req, res, next) => {
+    try {
+        const { firstName, lastName, nickName, email, status, profileImage } =
+            req.body;
+            console.log(firstName,lastName,nickName, email, status);
+        if (!firstName) {
+            res.status(400).send({
+                type: "error",
+                heading: "Error",
+                message: `Please fill you firstName field.`,
+            });
+        }
+        if (!nickName) {
+            res.status(400).send({
+                type: "error",
+                heading: "Error",
+                message: `Please fill you nickName field.`,
+            });
+        }
+        if (!email) {
+            res.status(400).send({
+                type: "error",
+                heading: "Error",
+                message: `Please fill you email  field.`,
+            });
+        }
+        const isExistUser = await Users.findOne({ email });
+        if (!isExistUser) {
+            res.status(500).send({
+                type: "error",
+                heading: "Error",
+                message: `Could not find User. Please first register yourself.`,
+            });
+        }
+        const updatedUser = await Users.fineOneAndUpdate(
+            { email },
+            {
+                $set: { firstName, lastName, nickName, status, profileImage },
+            },
+            { new: true }
+        );
+        res.status(200).send({
+            type: "success",
+            heading: "Success",
+            message: `Successfully Updated User`,
+            data: JSON.stringify(updatedUser),
+        });
     } catch (error) {
         res.status(500).send({
             type: "error",
@@ -309,11 +383,11 @@ app.get(
         try {
             const conversationId = req.params.conversationId;
             const senderId = req.params.senderId;
-            
+
             const allUnreadMessages = await Messages.find({
                 conversationId,
                 senderId,
-                read:false
+                read: false,
             });
             res.status(200).send({
                 message: "Message read successfully.",
