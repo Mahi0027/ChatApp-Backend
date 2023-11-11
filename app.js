@@ -86,8 +86,11 @@ app.post("/api/register", async (req, res, next) => {
                 });
             } else {
                 const newUser = new Users({
-                    firstName: fullName,
                     email: email,
+                    firstName: fullName,
+                    lastName: "",
+                    nickName: "",
+                    profileImage: "",
                 });
                 bcryptjs.hash(password, 10, (error, hashedPassword) => {
                     newUser.set("password", hashedPassword);
@@ -165,7 +168,6 @@ app.post("/api/login", async (req, res, next) => {
                                 user: {
                                     id: user._id,
                                     email: user.email,
-                                    fullName: user.fullName,
                                 },
                                 token: token,
                             });
@@ -186,9 +188,10 @@ app.post("/api/login", async (req, res, next) => {
 // user profile update
 app.post("/api/userUpdate", async (req, res, next) => {
     try {
+        // console.log("req.body", req.body);
         const { firstName, lastName, nickName, email, status, profileImage } =
             req.body;
-            console.log(firstName,lastName,nickName, email, status);
+        console.log(firstName, lastName, nickName, email, status, profileImage);
         if (!firstName) {
             res.status(400).send({
                 type: "error",
@@ -218,12 +221,12 @@ app.post("/api/userUpdate", async (req, res, next) => {
                 message: `Could not find User. Please first register yourself.`,
             });
         }
-        const updatedUser = await Users.fineOneAndUpdate(
+        const updatedUser = await Users.findOneAndUpdate(
             { email },
             {
                 $set: { firstName, lastName, nickName, status, profileImage },
             },
-            { new: true }
+            { returnDocument: "after" }
         );
         res.status(200).send({
             type: "success",
@@ -423,7 +426,7 @@ app.get("/api/users", async (req, res) => {
     }
 });
 
-// get list of all users.
+// get user users.
 app.get("/api/user/:userId", async (req, res) => {
     try {
         const user = await Users.findOne({ _id: req.params.userId });
