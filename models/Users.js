@@ -22,10 +22,13 @@ const userSchema = mongoose.Schema({
     },
     status: {
         type: String,
-        
     },
     profileImage: {
         type: String,
+    },
+    theme: {
+        type: Number,
+        required: true,
     },
     token: {
         type: String,

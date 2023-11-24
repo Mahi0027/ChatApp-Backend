@@ -91,6 +91,7 @@ app.post("/api/register", async (req, res, next) => {
                     lastName: "",
                     nickName: "",
                     profileImage: "",
+                    theme: 0,
                 });
                 bcryptjs.hash(password, 10, (error, hashedPassword) => {
                     newUser.set("password", hashedPassword);
@@ -188,10 +189,8 @@ app.post("/api/login", async (req, res, next) => {
 // user profile update
 app.post("/api/userUpdate", async (req, res, next) => {
     try {
-        // console.log("req.body", req.body);
         const { firstName, lastName, nickName, email, status, profileImage } =
             req.body;
-        console.log(firstName, lastName, nickName, email, status, profileImage);
         if (!firstName) {
             res.status(400).send({
                 type: "error",
@@ -232,6 +231,47 @@ app.post("/api/userUpdate", async (req, res, next) => {
             type: "success",
             heading: "Success",
             message: `Successfully Updated User`,
+            data: JSON.stringify(updatedUser),
+        });
+    } catch (error) {
+        res.status(500).send({
+            type: "error",
+            heading: "Error",
+            message: `Something went wrong. Error: ${error}`,
+        });
+    }
+});
+
+// user theme update
+app.post("/api/userThemeUpdate", async (req, res, next) => {
+    try {
+        const { email, theme } = req.body;
+        if (!email) {
+            res.status(400).send({
+                type: "error",
+                heading: "Error",
+                message: `Could not get email. Please refresh page.`,
+            });
+        }
+        const isExistUser = await Users.findOne({ email });
+        if (!isExistUser) {
+            res.status(500).send({
+                type: "error",
+                heading: "Error",
+                message: `Could not find User. Please first register yourself.`,
+            });
+        }
+        const updatedUser = await Users.findOneAndUpdate(
+            { email },
+            {
+                $set: { theme },
+            },
+            { returnDocument: "after" }
+        );
+        res.status(200).send({
+            type: "success",
+            heading: "Success",
+            message: `Successfully theme has been updated.`,
             data: JSON.stringify(updatedUser),
         });
     } catch (error) {
@@ -287,7 +327,9 @@ app.get("/api/conversations/:userId", async (req, res) => {
                     user: {
                         id: receiverUser._id,
                         email: receiverUser.email,
-                        fullName: receiverUser.fullName,
+                        firstName: receiverUser.firstName,
+                        lastName: receiverUser.lastName,
+                        profileImage: receiverUser.profileImage,
                     },
                     conversationId: conversation._id,
                 };
@@ -414,7 +456,9 @@ app.get("/api/users", async (req, res) => {
                     user: {
                         id: user._id,
                         email: user.email,
-                        fullName: user.fullName,
+                        firstName: user.firstName,
+                        lastName: user.lastName,
+                        profileImage: user.profileImage,
                     },
                     // userId: user._id,
                 };
