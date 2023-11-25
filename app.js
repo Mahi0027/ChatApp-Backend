@@ -25,29 +25,42 @@ app.use(cors());
 const port = process.env.PORT || 8000;
 
 // socket.io
-let users = [];
+let activeUsers = [];
 io.on("connection", (socket) => {
     /* on add user. */
     socket.on("addUser", (userId) => {
         if (userId) {
-            const isUserExist = users.find((user) => user.userId === userId);
+            const isUserExist = activeUsers.find(
+                (user) => user.userId === userId
+            );
             if (!isUserExist) {
-                const user = { userId, socketId: socket.id };
-                users.push(user);
-                io.emit("getUsers", users);
+                const activeUser = { userId, socketId: socket.id };
+                activeUsers.push(activeUser);
+                io.emit("getUsers", activeUsers);
             }
         }
     });
 
     socket.on(
         "sendMessage",
-        async ({ conversationId, senderId, message, receiverId }) => {
-            const receiver = users.find((user) => user.userId === receiverId);
+        async ({
+            conversationId,
+            senderId,
+            message,
+            type,
+            timeStamp,
+            receiverId,
+        }) => {
+            const receiver = activeUsers.find(
+                (user) => user.userId === receiverId
+            );
             if (receiver) {
                 io.to(receiver.socketId).emit("getMessage", {
                     conversationId,
                     senderId,
                     message,
+                    type,
+                    timeStamp,
                     receiver,
                 });
             }
@@ -56,8 +69,8 @@ io.on("connection", (socket) => {
 
     /* on disconnect user. */
     socket.on("disconnect", () => {
-        users = users.filter((user) => user.socketId !== socket.id);
-        io.emit("getUsers", users);
+        activeUsers = activeUsers.filter((user) => user.socketId !== socket.id);
+        io.emit("getUsers", activeUsers);
     });
 });
 
@@ -344,7 +357,14 @@ app.get("/api/conversations/:userId", async (req, res) => {
 // send message
 app.post("/api/message", async (req, res) => {
     try {
-        const { conversationId, senderId, message, receiverId = "" } = req.body;
+        const {
+            conversationId,
+            senderId,
+            message,
+            type,
+            timeStamp,
+            receiverId = "",
+        } = req.body;
         var newConversationId = "";
         if (!senderId || !message)
             return res.status(400).send("Please fill all required fields.");
@@ -362,6 +382,8 @@ app.post("/api/message", async (req, res) => {
             conversationId: newConversationId,
             senderId,
             message,
+            type,
+            timeStamp: timeStamp,
         });
         await newMessage.save();
         res.status(200).send({ message: "Message sent successfully." });
@@ -384,9 +406,12 @@ app.get("/api/message/:conversationId/:senderId", async (req, res) => {
                     user: {
                         id: user._id,
                         email: user.email,
-                        fullName: user.fullName,
+                        firstName: user.firstName,
+                        lastName: user.lastName,
                     },
                     message: message.message,
+                    type: message.type,
+                    timeStamp: message.timeStamp,
                 };
             })
         );

@@ -11,10 +11,17 @@ const MessageSchema = mongoose.Schema({
     message: {
         type: String,
     },
+    type: {
+        type: String,
+        default: 'text'
+    },
     read: {
         type: Boolean,
         default: false,
     },
+    timeStamp: {
+        type: String,
+    }
 });
 
 const Message = mongoose.model("Message", MessageSchema);
