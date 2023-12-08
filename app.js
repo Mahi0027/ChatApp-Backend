@@ -313,6 +313,26 @@ app.post("/api/conversation", async (req, res) => {
     }
 });
 
+// build conversation
+app.post("/api/createGroup", async (req, res) => {
+    try {
+        const { groupName, adminId, userIds } = req.body;
+        const newConversation = new Conversations({
+            groupName: groupName,
+            members: [adminId, ...userIds],
+            isGroup: true,
+        });
+        const result = await newConversation.save();
+        res.status(200).send({
+            type: "success",
+            heading: "Success",
+            message: "Group Created successfully.",
+        });
+    } catch (error) {
+        res.status(400).send(`Something went wrong. Error: ${error}`);
+    }
+});
+
 //get all user's list whom current user has talked.
 app.get("/api/conversations", async (req, res) => {
     try {
@@ -332,19 +352,26 @@ app.get("/api/conversations/:userId", async (req, res) => {
         });
         const conversationUserData = Promise.all(
             conversations.map(async (conversation) => {
-                const receiverId = conversation.members.find(
+                const receiverId = conversation.members.filter(
                     (member) => member !== userId
                 );
-                const receiverUser = await Users.findById(receiverId);
-                return {
-                    user: {
+                const usersDetail = [];
+                for (let id of receiverId) {
+                    const receiverUser = await Users.findById(id);
+                    const temp = {
                         id: receiverUser._id,
                         email: receiverUser.email,
                         firstName: receiverUser.firstName,
                         lastName: receiverUser.lastName,
                         profileImage: receiverUser.profileImage,
-                    },
+                    };
+                    usersDetail.push(temp);
+                }
+                return {
+                    users: usersDetail,
                     conversationId: conversation._id,
+                    isGroup: conversation.isGroup,
+                    groupName: conversation.groupName,
                 };
             })
         );
