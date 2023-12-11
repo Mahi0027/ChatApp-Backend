@@ -49,20 +49,25 @@ io.on("connection", (socket) => {
             message,
             type,
             timeStamp,
-            receiverId,
+            receiverIds,
         }) => {
-            const receiver = activeUsers.find(
-                (user) => user.userId === receiverId
-            );
-            if (receiver) {
-                io.to(receiver.socketId).emit("getMessage", {
-                    conversationId,
-                    senderId,
-                    message,
-                    type,
-                    timeStamp,
-                    receiver,
-                });
+            for (let receiverId of receiverIds) {
+                const receiver = activeUsers.find(
+                    (user) => user.userId === receiverId
+                );
+                if (receiver) {
+                    const senderDetail = await Users.findOne({
+                        _id: senderId,
+                    });
+                    io.to(receiver.socketId).emit("getMessage", {
+                        conversationId,
+                        senderDetail,
+                        message,
+                        type,
+                        timeStamp,
+                        receiver,
+                    });
+                }
             }
         }
     );
@@ -390,14 +395,15 @@ app.post("/api/message", async (req, res) => {
             message,
             type,
             timeStamp,
-            receiverId = "",
+            receiverIds = [],
         } = req.body;
         var newConversationId = "";
         if (!senderId || !message)
             return res.status(400).send("Please fill all required fields.");
-        if (!conversationId && receiverId !== "") {
+
+        if (!conversationId && receiverIds.length) {
             const newConversation = new Conversations({
-                members: [senderId, receiverId],
+                members: [senderId, ...receiverIds],
             });
             await newConversation.save();
             newConversationId = newConversation._id;
@@ -436,6 +442,7 @@ app.get("/api/message/:conversationId/:senderId", async (req, res) => {
                         firstName: user.firstName,
                         lastName: user.lastName,
                     },
+                    conversationId: conversationId,
                     message: message.message,
                     type: message.type,
                     timeStamp: message.timeStamp,
