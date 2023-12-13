@@ -369,6 +369,7 @@ app.get("/api/conversations/:userId", async (req, res) => {
                         firstName: receiverUser.firstName,
                         lastName: receiverUser.lastName,
                         profileImage: receiverUser.profileImage,
+                        status: receiverUser.status,
                     };
                     usersDetail.push(temp);
                 }
